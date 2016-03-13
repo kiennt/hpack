@@ -88,7 +88,7 @@ defmodule HPACK.Context do
   Change size of dynamic table
   http://httpwg.org/specs/rfc7541.html#string.literal.representation
   """
-  def change_size(%__MODULE__{max_size: max_size, table: table, size: size} = context, new_size) do
+  def change_size(%__MODULE__{table: table, size: size}, new_size) do
     do_change_size(%__MODULE__{max_size: new_size, table: table, size: size})
   end
 
@@ -116,7 +116,7 @@ defmodule HPACK.Context do
       size: size + header_size
     }
   end
-  defp do_add(%__MODULE__{max_size: max_size}, header, header_size) when header_size > max_size do
+  defp do_add(%__MODULE__{max_size: max_size}, _, header_size) when header_size > max_size do
     %__MODULE__{
       max_size: max_size,
       table: [],

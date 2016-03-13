@@ -284,7 +284,7 @@ defmodule HPACK.String do
       decode_huffman_string(bin, acc <> <<unquote(index)>>)
     end
   end)
-  defp decode_huffman_string(bin, acc) do
+  defp decode_huffman_string(_, acc) do
     acc
   end
 end

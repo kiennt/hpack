@@ -20,7 +20,7 @@ defmodule HPACKTest do
     |> Path.join
     |> File.ls!
     |> Enum.each(fn(file) ->
-      test "case #{name}/#{file}" do
+      test "decode #{name}/#{file}" do
         %{"cases" => cases} = ["test", "hpack-test-case", unquote(name), unquote(file)] |> Path.join |> File.read! |> Poison.decode!
         cases
         |> Enum.reduce(HPACK.Context.new, fn(%{"headers" => data , "wire" => wire}, context) ->

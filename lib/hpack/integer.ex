@@ -39,9 +39,9 @@ defmodule HPACK.Integer do
     {value, remain}
   end
 
-  defp do_decode(n, <<>>, value, m),
+  defp do_decode(_, <<>>, value, _),
     do: {value, <<>>}
-  defp do_decode(n, <<0::1, next::7, bin::bitstring>>, value, m),
+  defp do_decode(_, <<0::1, next::7, bin::bitstring>>, value, m),
     do: {value + next * bsl(1, m), bin}
   defp do_decode(n, <<1::1, next::7, bin::bitstring>>, value, m) do
     do_decode(n, bin, value + next * bsl(1, m), m + 7)
