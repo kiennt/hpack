@@ -22,8 +22,10 @@ defmodule HPACKTest do
     |> Enum.each(fn(file) ->
       test "decode #{name}/#{file}" do
         %{"cases" => cases} = ["test", "hpack-test-case", unquote(name), unquote(file)] |> Path.join |> File.read! |> Poison.decode!
+        max_size = Enum.at(cases, 0)["header_table_size"] || 4096
+        context = HPACK.Context.new(%{max_size: max_size})
         cases
-        |> Enum.reduce(HPACK.Context.new, fn(%{"headers" => data , "wire" => wire}, context) ->
+        |> Enum.reduce(context, fn(%{"headers" => data , "wire" => wire}, context) ->
           headers =
             data
             |> Enum.map(fn(item) ->
