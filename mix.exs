@@ -2,7 +2,7 @@ defmodule Hpack.Mixfile do
   use Mix.Project
 
   def project do
-    [app: :hpack,
+    [app: :http2,
      version: "0.0.1",
      elixir: "~> 1.2",
      description: description,
@@ -28,7 +28,7 @@ defmodule Hpack.Mixfile do
 
   defp deps do
     [
-      {:poison, "~> 1.5"},
+      {:poison, "~> 1.5", only: [:dev, :test]},
       {:benchfella, "~> 0.3.0", only: [:dev, :test]},
       {:octet, "~> 0.0.2", only: [:test]},
       {:coverex, "~> 1.4.7", only: :test},
