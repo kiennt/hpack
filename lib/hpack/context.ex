@@ -74,16 +74,28 @@ defmodule HPACK.Context do
     context
   end
 
+  @doc """
+  Get header at specified index in table
+  http://httpwg.org/specs/rfc7541.html#string.literal.representation
+  """
   @static_table
   |> Enum.each(fn({index, name, value}) ->
     def at(_, unquote(index)), do: {unquote(name), unquote(value)}
   end)
   def at(context, index), do: Enum.at(context.table, index - 62)
 
+  @doc """
+  Change size of dynamic table
+  http://httpwg.org/specs/rfc7541.html#string.literal.representation
+  """
   def change_size(%__MODULE__{max_size: max_size, table: table, size: size} = context, new_size) do
     do_change_size(%__MODULE__{max_size: new_size, table: table, size: size})
   end
 
+  @doc """
+  Add new header into dynamic table
+  http://httpwg.org/specs/rfc7541.html#string.literal.representation
+  """
   def add(context, header) do
     do_add(context, header, entry_size(header))
   end
