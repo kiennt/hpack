@@ -85,6 +85,28 @@ defmodule HPACK.Context do
   def at(context, index), do: Enum.at(context.table, index - 62)
 
   @doc """
+  Find index of a header
+  http://httpwg.org/specs/rfc7541.html#string.literal.representation
+  """
+  @static_table
+  |> Enum.each(fn({index, name, value}) ->
+    def find(_, {unquote(name), unquote(value)}), do: {:indexed, unquote(index)}
+    def find(_, {unquote(name), _}), do: {:literal_with_indexing, unquote(index)}
+  end)
+  def find(%Context{table: table}, {name, value}) do
+    index = Enum.find_index(table, fn({n, v}) -> n == name && v == value end) do
+    if index do
+      {:indexed, header_index + 62}
+    else
+      index = Enum.find_index(table, fn({n, _} -> n == name end)
+      if name_index do
+        {:name_index, index + 62}
+      else
+        {:none}
+    end
+  end
+
+  @doc """
   Change size of dynamic table
   http://httpwg.org/specs/rfc7541.html#string.literal.representation
   """

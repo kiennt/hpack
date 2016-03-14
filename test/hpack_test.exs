@@ -21,22 +21,11 @@ defmodule HPACKTest do
     |> File.ls!
     |> Enum.each(fn(file) ->
       test "decode #{name}/#{file}" do
-        %{"cases" => cases} = ["test", "hpack-test-case", unquote(name), unquote(file)] |> Path.join |> File.read! |> Poison.decode!
-        max_size = Enum.at(cases, 0)["header_table_size"] || 4096
-        context = HPACK.Context.new(%{max_size: max_size})
-        cases
-        |> Enum.reduce(context, fn(%{"headers" => data , "wire" => wire}, context) ->
-          headers =
-            data
-            |> Enum.map(fn(item) ->
-              [key] = Map.keys(item)
-              {key, item[key]}
-            end)
-          bin = Octet.string_to_bin(wire)
-          {result, context} = HPACK.decode(bin, context)
-          assert result == headers
-          context
-        end)
+        test_decode_file(unquote(name), unquote(file))
+      end
+
+      test "encode #{name}/#{file}" do
+        test_encode_file(unquote(name), unquote(file))
       end
     end)
   end)
@@ -211,5 +200,54 @@ defmodule HPACKTest do
     assert headers2 == result2
     {headers3, _} = HPACK.decode(Octet.string_to_bin(wire3), context2)
     assert headers3 == result3
+  end
+
+  #############################################################################
+  # Private functions
+  #############################################################################
+
+  defp read_file(test_type, file_name) do
+    %{"cases" => cases} =
+      ["test", "hpack-test-case", test_type, file_name]
+      |> Path.join
+      |> File.read!
+      |> Poison.decode!
+    cases
+  end
+
+  defp convert_map_headers_to_list(map) do
+    map
+    |> Enum.map(fn(item) ->
+      [key] = Map.keys(item)
+      {key, item[key]}
+    end)
+  end
+
+  defp test_decode_file(test_type, file_name) do
+    cases = read_file(test_type, file_name)
+    max_size = Enum.at(cases, 0)["header_table_size"] || 4096
+    context = HPACK.Context.new(%{max_size: max_size})
+    cases
+    |> Enum.reduce(context, fn(%{"headers" => headers, "wire" => wire}, context) ->
+      bin = Octet.string_to_bin(wire)
+      {result, context} = HPACK.decode(bin, context)
+      assert result == convert_map_headers_to_list(headers)
+      context
+    end)
+  end
+
+  defp test_encode_file(test_type, file_name) do
+    cases = read_file(test_type, file_name)
+    max_size = Enum.at(cases, 0)["header_table_size"] || 4096
+    encode_context = HPACK.Context.new(%{max_size: max_size})
+    decode_context = HPACK.Context.new(%{max_size: max_size})
+    cases
+    |> Enum.reduce({encode_context, decode_context}, fn(%{"headers" => map, "wire" => wire}, {ec, dc}) ->
+      headers = convert_map_headers_to_list(map)
+      {bin, ec} = HPACK.encode(headers, ec)
+      {result_headers, dc} = HPACK.decode(bin, dc)
+      assert headers == result_headers
+      {ec, dc}
+    end)
   end
 end

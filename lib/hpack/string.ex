@@ -259,6 +259,36 @@ defmodule HPACK.String do
     {0x3fffffff, 30}]
 
   @doc """
+  Encode string
+  http://httpwg.org/specs/rfc7541.html#string.literal.representation
+  """
+  @spec encode(binary) :: {String.t, binary}
+  def encode(value, huffman) do
+    size_bin = HPACK.Integer.encode(byte_size(value), 7)
+    case huffman do
+      false -> <<0::1, size_bin::bitstring, encode_normal_string(value, <<>>)>>
+      true -> <<1::1, size_bin::bitstring, encode_huffman_string(value, <<>>)>>
+    end
+  end
+
+  def encode_normal_string("", acc),
+    do: bin
+  def encode_normal_string(<<first, res::binary>>, acc),
+    do: encode_normal_string(res, acc <> <<first>>)
+
+  @huffman_table
+  |> Stream.with_index
+  |> Enum.each(fn({{code, n}, index}) ->
+    defp encode_huffman_string(<<unquote(index), rest::binary>>, acc) do
+      decode_huffman_string(rest, acc <> <<unquote(Macro.escape(code))::size(unquote(n))>>)
+    end
+  end)
+  defp encode_huffman_string(<<>>, acc) do
+    bit_left = 8 - rem(bit_size(acc), 8)
+    <<acc::bitstring, 0xfff::bit_left>>
+  end
+
+  @doc """
   Decoding string
   http://httpwg.org/specs/rfc7541.html#string.literal.representation
   """
