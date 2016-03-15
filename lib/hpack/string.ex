@@ -262,17 +262,22 @@ defmodule HPACK.String do
   Encode string
   http://httpwg.org/specs/rfc7541.html#string.literal.representation
   """
-  @spec encode(binary) :: {String.t, binary}
+  @spec encode(String.t, boolean) :: {binary}
   def encode(value, huffman) do
-    size_bin = HPACK.Integer.encode(byte_size(value), 7)
     case huffman do
-      false -> <<0::1, size_bin::bitstring, encode_normal_string(value, <<>>)>>
-      true -> <<1::1, size_bin::bitstring, encode_huffman_string(value, <<>>)>>
+      false ->
+        size_bin = HPACK.Integer.encode(byte_size(value), 7)
+        data = encode_normal_string(value, <<>>)
+        <<0::1, size_bin::bitstring, data::bitstring>>
+      true ->
+        data = encode_huffman_string(value, <<>>)
+        size_bin = HPACK.Integer.encode(byte_size(data), 7)
+        <<1::1, size_bin::bitstring, data::bitstring>>
     end
   end
 
   def encode_normal_string("", acc),
-    do: bin
+    do: acc
   def encode_normal_string(<<first, res::binary>>, acc),
     do: encode_normal_string(res, acc <> <<first>>)
 
@@ -280,12 +285,12 @@ defmodule HPACK.String do
   |> Stream.with_index
   |> Enum.each(fn({{code, n}, index}) ->
     defp encode_huffman_string(<<unquote(index), rest::binary>>, acc) do
-      decode_huffman_string(rest, acc <> <<unquote(Macro.escape(code))::size(unquote(n))>>)
+      encode_huffman_string(rest, <<acc::bitstring, unquote(Macro.escape(code))::size(unquote(n))>>)
     end
   end)
   defp encode_huffman_string(<<>>, acc) do
     bit_left = 8 - rem(bit_size(acc), 8)
-    <<acc::bitstring, 0xfff::bit_left>>
+    <<acc::bitstring, 0xfff::size(bit_left)>>
   end
 
   @doc """

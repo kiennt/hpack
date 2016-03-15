@@ -31,4 +31,18 @@ defmodule HPACKContextTest do
     new_context = Context.change_size(context, 40)
     assert %Context{max_size: 40, table: [], size: 0} == new_context
   end
+
+  test "find header in static table" do
+    context = %Context{}
+    assert {:indexed, 59} == Context.find(context, {"vary", ""})
+    assert {:name_index, 59} == Context.find(context, {"vary", "hello"})
+  end
+
+  test "find header in dynamic table" do
+    context = %Context{table: [{"a", "a"}, {"a", "b"}]}
+    assert {:indexed, 62} == Context.find(context, {"a", "a"})
+    assert {:indexed, 63} == Context.find(context, {"a", "b"})
+    assert {:name_index, 62} == Context.find(context, {"a", "c"})
+    assert {:none} == Context.find(context, {"b", "c"})
+  end
 end

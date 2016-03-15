@@ -1,5 +1,5 @@
 defmodule HPACK.Context do
-  defstruct max_size: 4096, table: [], size: 0
+  defstruct max_size: 4096, table: [], size: 0, encode: :incremental, huffman: true
 
   @static_table [
     {1, ":authority", ""},
@@ -66,12 +66,13 @@ defmodule HPACK.Context do
   ]
 
   def new(options \\ %{}) do
-    context = %__MODULE__{
+    %__MODULE__{
       max_size: options[:max_size] || 4096,
       table: [],
-      size: 0
+      size: 0,
+      encode: options[:encode] || :incremental,
+      huffman: options[:huffman] || true
     }
-    context
   end
 
   @doc """
@@ -88,21 +89,17 @@ defmodule HPACK.Context do
   Find index of a header
   http://httpwg.org/specs/rfc7541.html#string.literal.representation
   """
-  @static_table
-  |> Enum.each(fn({index, name, value}) ->
-    def find(_, {unquote(name), unquote(value)}), do: {:indexed, unquote(index)}
-    def find(_, {unquote(name), _}), do: {:literal_with_indexing, unquote(index)}
-  end)
-  def find(%Context{table: table}, {name, value}) do
-    index = Enum.find_index(table, fn({n, v}) -> n == name && v == value end) do
+  def find(%__MODULE__{table: table}, {name, value}) do
+    index = Enum.find_index(table, fn({n, v}) -> n == name && v == value end)
     if index do
-      {:indexed, header_index + 62}
+      {:indexed, index + 62}
     else
-      index = Enum.find_index(table, fn({n, _} -> n == name end)
+      name_index = Enum.find_index(table, fn({n, _}) -> n == name end)
       if name_index do
-        {:name_index, index + 62}
+        {:name_index, name_index + 62}
       else
-        {:none}
+        static_find({name, value})
+      end
     end
   end
 
@@ -110,8 +107,14 @@ defmodule HPACK.Context do
   Change size of dynamic table
   http://httpwg.org/specs/rfc7541.html#string.literal.representation
   """
-  def change_size(%__MODULE__{table: table, size: size}, new_size) do
-    do_change_size(%__MODULE__{max_size: new_size, table: table, size: size})
+  def change_size(%__MODULE__{table: table, size: size} = context, new_size) do
+    do_change_size(%__MODULE__{
+      max_size: new_size,
+      table: table,
+      size: size,
+      encode: context.encode,
+      huffman: context.huffman,
+    })
   end
 
   @doc """
@@ -126,23 +129,39 @@ defmodule HPACK.Context do
   # Private functions
   #############################################################################
 
+  @static_table
+  |> Enum.each(fn({index, name, value}) ->
+    defp static_find({unquote(name), unquote(value)}), do: {:indexed, unquote(index)}
+  end)
+  @static_table
+  |> Enum.each(fn({index, name, value}) ->
+    defp static_find({unquote(name), _}), do: {:name_index, unquote(index)}
+  end)
+  defp static_find({_, _}), do: {:none}
+
+
   defp do_change_size(%__MODULE__{max_size: max_size, size: size} = context) when max_size >= size,
     do: context
   defp do_change_size(context),
     do: do_change_size(drop_last(context))
 
-  defp do_add(%__MODULE__{max_size: max_size, table: table, size: size}, header, header_size) when max_size >= size + header_size do
+  defp do_add(%__MODULE__{max_size: max_size, table: table, size: size} = context, header, header_size)
+      when max_size >= size + header_size do
     %__MODULE__{
       max_size: max_size,
       table: [header | table],
-      size: size + header_size
+      size: size + header_size,
+      encode: context.encode,
+      huffman: context.huffman,
     }
   end
-  defp do_add(%__MODULE__{max_size: max_size}, _, header_size) when header_size > max_size do
+  defp do_add(%__MODULE__{max_size: max_size} = context, _, header_size) when header_size > max_size do
     %__MODULE__{
       max_size: max_size,
       table: [],
-      size: 0
+      size: 0,
+      encode: context.encode,
+      huffman: context.huffman,
     }
   end
   defp do_add(context, header, header_size) do
@@ -152,9 +171,15 @@ defmodule HPACK.Context do
   def drop_last(%__MODULE__{table: []} = context) do
     context
   end
-  def drop_last(%__MODULE__{max_size: max_size, table: table, size: size}) do
+  def drop_last(%__MODULE__{max_size: max_size, table: table, size: size} = context) do
     [last | new_table] = Enum.reverse(table)
-    %__MODULE__{max_size: max_size, table: Enum.reverse(new_table), size: size - entry_size(last)}
+    %__MODULE__{
+      max_size: max_size,
+      table: Enum.reverse(new_table),
+      size: size - entry_size(last),
+      encode: context.encode,
+      huffman: context.huffman,
+    }
   end
 
   def entry_size({name, value}), do: 32 + byte_size(name) + byte_size(value)
