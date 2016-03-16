@@ -3,7 +3,7 @@ defmodule Hpack.Mixfile do
 
   def project do
     [app: :http2,
-     version: "0.0.1",
+     version: "0.0.2",
      elixir: "~> 1.2",
      description: description,
      package: package,
@@ -32,6 +32,8 @@ defmodule Hpack.Mixfile do
       {:benchfella, "~> 0.3.0", only: [:dev, :test]},
       {:octet, "~> 0.0.2", only: [:test]},
       {:coverex, "~> 1.4.7", only: :test},
+      {:ex_doc, only: [:dev]},
+      {:earmark, ">= 0.0.0", only: [:dev]}
     ]
   end
 end
